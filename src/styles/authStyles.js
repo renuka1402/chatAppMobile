@@ -1,0 +1,116 @@
+import { StyleSheet } from 'react-native';
+
+export default StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#FFF',
+        justifyContent: 'center',
+    },
+    formContainer: {
+        paddingHorizontal: 28,
+    },
+    headerArea: {
+        marginBottom: 35,
+        alignItems: 'center',
+    },
+    logoCircle: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: '#DCF8C6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 18,
+        borderWidth: 1,
+        borderColor: '#BCE8B0',
+    },
+    logoEmoji: {
+        fontSize: 32,
+    },
+    title: {
+        fontSize: 30,
+        fontWeight: '800',
+        color: '#111B21',
+        letterSpacing: -0.5,
+        marginBottom: 8,
+    },
+    subtitle: {
+        fontSize: 15,
+        color: '#667781',
+        textAlign: 'center',
+    },
+    inputWrapper: {
+        marginBottom: 18,
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#41525D',
+        marginBottom: 8,
+        paddingLeft: 4,
+    },
+    input: {
+        borderWidth: 1.5,
+        borderColor: '#E2E8E5',
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        height: 54,
+        fontSize: 16,
+        color: '#111B21',
+        backgroundColor: '#F7F8F9',
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    inputError: {
+        borderColor: '#EF4444',
+        backgroundColor: '#FEF2F2',
+    },
+    errorText: {
+        color: '#EF4444',
+        fontSize: 13,
+        fontWeight: '500',
+        marginTop: 6,
+        paddingLeft: 4,
+    },
+    button: {
+        backgroundColor: '#075E54',
+        borderRadius: 14,
+        height: 56,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 10,
+        shadowColor: '#075E54',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+        elevation: 4,
+    },
+    buttonDisabled: {
+        backgroundColor: '#A8C9C2',
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+    buttonText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '700',
+        letterSpacing: 0.2,
+    },
+    switchContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 28,
+    },
+    switchTextNormal: {
+        color: '#667781',
+        fontSize: 14,
+    },
+    switchTextBold: {
+        color: '#075E54',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+});
