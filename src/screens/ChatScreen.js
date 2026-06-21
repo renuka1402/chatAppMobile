@@ -19,7 +19,7 @@ export default function ChatScreen({ navigation, route }) {
     const [text, setText] = useState('');
     const flatListRef = useRef();
 
-    // Messages ko Date ke hisaab se Group karne ka logic
+  
     const groupedMessages = useMemo(() => {
         const groups = [];
         let lastDate = null;

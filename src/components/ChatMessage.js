@@ -3,11 +3,11 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import styles from '../styles/chatMessageStyles';
 
 export const ChatMessage = ({ item, isMyMessage, onLongPress }) => (
-    // TouchableOpacity add kiya taaki press events register ho sakein
+   
     <TouchableOpacity 
         onLongPress={onLongPress} 
         activeOpacity={0.7} 
-        disabled={!isMyMessage} // Sirf apne messages par delete allow karne ke liye
+        disabled={!isMyMessage} 
     >
         <View style={[styles.bubble, isMyMessage ? styles.myBubble : styles.otherBubble]}>
             <Text style={styles.sender}>{item.sender}</Text>

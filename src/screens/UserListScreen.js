@@ -237,14 +237,10 @@ export default function UserListScreen({ navigation, route }) {
                     {item.lastMessageAt ? formatMessageTime(item.lastMessageAt) : ""}
                   </Text>
                 </View>
-                
-                {/* Bottom Row containing Message text and Badge */}
                 <View style={styles.rowBottom}>
                   <Text style={styles.userSub} numberOfLines={1}>
                     {item.lastMessage ? item.lastMessage : "Tap to start chatting"}
                   </Text>
-                  
-                  {/* Unread Badge UI Conditional Render */}
                   {item.unreadCount > 0 && (
                     <View style={styles.badgeContainer}>
                       <Text style={styles.badgeText}>{item.unreadCount}</Text>
