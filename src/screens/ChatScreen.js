@@ -1,17 +1,39 @@
-import React, { useState, useRef } from 'react';
-import { StyleSheet, View, TextInput, TouchableOpacity, Text, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, StatusBar, ImageBackground } from 'react-native';
+import React, { useState, useRef, useMemo } from 'react';
+import { 
+    StyleSheet, View, TextInput, TouchableOpacity, Text, 
+    FlatList, KeyboardAvoidingView, Platform, SafeAreaView, 
+    StatusBar, Alert 
+} from 'react-native';
 import { useChat } from '../hooks/useChat';
 import { useAuth } from '../hooks/useAuth';
 import { ChatMessage } from '../components/ChatMessage';
 import { ConnectionStatus } from '../components/ConnectionStatus';
+import { formatDateHeader } from '../utils/date'; 
+import styles from "../styles/chatScreenStyles";
 
 export default function ChatScreen({ navigation, route }) {
     const chatUser = route.params?.user;
     const recipient = chatUser?.username;
-    const { messages, status, currentUser, sendMessage } = useChat(recipient);
+    const { messages, status, currentUser, sendMessage, deleteMessage } = useChat(recipient);
     const { logout } = useAuth(navigation);
     const [text, setText] = useState('');
     const flatListRef = useRef();
+
+    // Messages ko Date ke hisaab se Group karne ka logic
+    const groupedMessages = useMemo(() => {
+        const groups = [];
+        let lastDate = null;
+
+        messages.forEach((msg) => {
+            const dateHeader = formatDateHeader(msg.timestamp);
+            if (dateHeader !== lastDate) {
+                groups.push({ type: 'header', title: dateHeader, _id: 'header-' + msg.timestamp });
+                lastDate = dateHeader;
+            }
+            groups.push({ type: 'message', ...msg });
+        });
+        return groups;
+    }, [messages]);
 
     const handleSend = () => {
         if (!text.trim()) return;
@@ -20,48 +42,70 @@ export default function ChatScreen({ navigation, route }) {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="light-content" backgroundColor="#075E54" />
 
-            {/* Header section */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
-                    <Text style={styles.usersBtn}>‹</Text>
-                </TouchableOpacity>
-                <View style={styles.headerAvatar}>
-                    <Text style={styles.headerAvatarText}>
-                        {recipient ? recipient.charAt(0).toUpperCase() : '?'}
-                    </Text>
-                </View>
-                <View style={styles.headerCenter}>
-                    <Text style={styles.headerTitle} numberOfLines={1}>{recipient || 'Chat'}</Text>
-                      <ConnectionStatus status={status} />
-                </View>
-                <TouchableOpacity onPress={logout} activeOpacity={0.7}>
-                    <Text style={styles.logoutBtn}>Logout</Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Socket Status Indicator */}
-         
-
-            {/* Main Chat Layout Area — WhatsApp-style wallpaper background */}
             <KeyboardAvoidingView 
-                style={{ flex: 1 }} 
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+                style={styles.container} 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 25} 
             >
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
+                        <Text style={styles.usersBtn}>‹</Text>
+                    </TouchableOpacity>
+                    <View style={styles.headerAvatar}>
+                        <Text style={styles.headerAvatarText}>
+                            {recipient ? recipient.charAt(0).toUpperCase() : '?'}
+                        </Text>
+                    </View>
+                    <View style={styles.headerCenter}>
+                        <Text style={styles.headerTitle} numberOfLines={1}>{recipient || 'Chat'}</Text>
+                        <ConnectionStatus status={status} />
+                    </View>
+                </View>
+
+                {/* Chat History List */}
                 <View style={styles.wallpaper}>
                     <FlatList
                         ref={flatListRef}
-                        data={messages}
-                        keyExtractor={(item) => item._id || Math.random().toString()}
-                        renderItem={({ item }) => <ChatMessage item={item} isMyMessage={item.sender === currentUser} />}
+                        data={groupedMessages}
+                        keyExtractor={(item) => item._id}
+                        renderItem={({ item }) => {
+                            if (item.type === 'header') {
+                                return (
+                                    <View style={styles.dateHeader}>
+                                        <Text style={styles.dateHeaderText}>{item.title}</Text>
+                                    </View>
+                                );
+                            }
+                            return (
+                                <ChatMessage 
+                                    item={item} 
+                                    isMyMessage={item.sender === currentUser}
+                                    onLongPress={() => {
+                                        if (item.sender === currentUser) {
+                                            Alert.alert(
+                                                "Delete Message",
+                                                "Are you sure you want to delete this message?",
+                                                [
+                                                    { text: "Cancel", style: "cancel" },
+                                                    { text: "Delete", style: "destructive", onPress: () => deleteMessage(item._id) }
+                                                ]
+                                            );
+                                        }
+                                    }}
+                                />
+                            );
+                        }}
                         contentContainerStyle={styles.listContent}
                         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                        onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
                     />
                 </View>
 
+                {/* Input Bar */}
                 <View style={styles.inputContainer}>
                     <View style={styles.inputBox}>
                         <TextInput
@@ -86,78 +130,3 @@ export default function ChatScreen({ navigation, route }) {
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#075E54' },
-    header: {
-        height: 60,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 10,
-        backgroundColor: '#075E54',
-    },
-    backBtn: { paddingHorizontal: 6 },
-    usersBtn: { color: '#FFF', fontSize: 28, fontWeight: '400' },
-    headerAvatar: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        backgroundColor: '#128C7E',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 4,
-    },
-    headerAvatarText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
-    headerCenter: { flex: 1, marginLeft: 12 },
-    headerTitle: { fontSize: 17, fontWeight: '600', color: '#FFF' },
-    headerSub: { fontSize: 12, color: '#D9FDD3', marginTop: 1 },
-    logoutBtn: { color: '#FFF', fontSize: 13, fontWeight: '600', opacity: 0.9, paddingHorizontal: 8 },
-
-    // WhatsApp's classic light tan/beige chat wallpaper
-    wallpaper: { flex: 1, backgroundColor: '#ECE5DD' },
-    listContent: { padding: 12, paddingBottom: 14 },
-
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        paddingHorizontal: 8,
-        paddingVertical: 8,
-        backgroundColor: '#ECE5DD',
-    },
-    inputBox: {
-        flex: 1,
-        backgroundColor: '#FFF',
-        borderRadius: 24,
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        marginRight: 8,
-        minHeight: 46,
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.08,
-        shadowRadius: 2,
-        elevation: 1,
-    },
-    input: {
-        fontSize: 15,
-        color: '#111B21',
-        maxHeight: 100,
-        paddingVertical: 4,
-    },
-    sendBtn: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
-        backgroundColor: '#25D366',
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-    },
-    sendBtnDisabled: { backgroundColor: '#A8D5BE', elevation: 0, shadowOpacity: 0 },
-    sendIcon: { color: '#FFF', fontSize: 18, fontWeight: '700', marginLeft: 2 },
-});

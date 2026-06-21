@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { connectSocket, emitMessage, disconnectSocket } from '../services/socket';
-import { fetchChatHistory } from '../services/api';
+import { fetchChatHistory,deleteMessageApi } from '../services/api';
 import { getSession } from '../utils/storage';
 
 export const useChat = (recipient) => {
@@ -9,64 +9,48 @@ export const useChat = (recipient) => {
     const [currentUser, setCurrentUser] = useState('');
 
     useEffect(() => {
-        let isMounted = true;
+        if (!recipient) return;
 
         const initChat = async () => {
             const { token, username } = await getSession();
-            console.log('[chat:init]', {
-                username,
-                recipient,
-                hasToken: Boolean(token)
-            });
-            if (isMounted) setCurrentUser(username);
-
-            if (!recipient) {
-                console.log('[chat:init:skip] recipient missing');
-                return;
-            }
+            setCurrentUser(username);
 
             try {
-                const history = await fetchChatHistory(token, recipient);
-                console.log('[chat:history:loaded]', history.length);
-                if (isMounted) setMessages(history);
+               const history = await fetchChatHistory(recipient);
+                setMessages(history);
             } catch (err) {
-                console.log('[chat:history:error]', err.message);
+                console.error('History load error:', err);
             }
 
             connectSocket(
                 token,
-                (newMessage) => {
-                    const belongsHere =
-                        (newMessage.sender === username && newMessage.recipient === recipient) ||
-                        (newMessage.sender === recipient && newMessage.recipient === username);
-                    console.log('[chat:message:received]', {
-                        sender: newMessage.sender,
-                        recipient: newMessage.recipient,
-                        belongsHere
-                    });
-                    if (isMounted && belongsHere) setMessages((prev) => [...prev, newMessage]);
+                (msg) => {
+                    const isChat = (msg.sender === username && msg.recipient === recipient) ||
+                        (msg.sender === recipient && msg.recipient === username);
+                    if (isChat) setMessages((prev) => [...prev, msg]);
                 },
-                (newStatus) => {
-                    console.log('[chat:socket_status]', newStatus);
-                    if (isMounted) setStatus(newStatus);
-                }
+                setStatus
             );
         };
 
         initChat();
-
-        return () => {
-            isMounted = false;
-            disconnectSocket();
-        };
+        return () => disconnectSocket();
     }, [recipient]);
 
     const sendMessage = (text) => {
-        if (text.trim()) {
-            console.log('[chat:send]', { recipient, hasText: true });
-            emitMessage(text, recipient);
+        if (text.trim()) emitMessage(text, recipient);
+    };
+
+    const unreadCount = messages.filter(m => m.sender === recipient && !m.isRead).length;
+
+    const deleteMessage = async (messageId) => {
+        try {
+            await deleteMessageApi(messageId); 
+            setMessages(prev => prev.filter(m => m._id !== messageId));
+        } catch (err) {
+            console.error(err);
         }
     };
 
-    return { messages, status, currentUser, sendMessage };
+    return { messages, status, currentUser, sendMessage,unreadCount, deleteMessage, };
 };

@@ -1,37 +1,96 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
-  ActivityIndicator,
   FlatList,
   SafeAreaView,
   StatusBar,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 import Toast from "react-native-toast-message";
 
+import LoadingIndicator from "../components/LoadingIndicator";
 import { fetchUsers } from "../services/api";
+import { connectSocket, disconnectSocket } from "../services/socket";
 import { clearSession, getSession } from "../utils/storage";
+import styles from "../styles/userListStyles";
+import { COLORS } from "../styles/colors";
+import { ROUTES } from "../utils/constants";
 
-export default function UserListScreen({ navigation }) {
+export default function UserListScreen({ navigation, route }) {
   const [users, setUsers] = useState([]);
   const [session, setSession] = useState({ token: "", username: "" });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isRefreshingList, setIsRefreshingList] = useState(false);
 
-  const loadUsers = useCallback(async () => {
+  const updateUserUnread = useCallback((username, message) => {
+    setUsers((prevUsers) => {
+      const existing = prevUsers.find((user) => user.username === username);
+      if (!existing) return prevUsers;
+
+      const updatedUsers = prevUsers.map((user) =>
+        user.username === username
+          ? {
+              ...user,
+              lastMessage: message.message || user.lastMessage,
+              lastMessageAt: message.timestamp || user.lastMessageAt,
+              unreadCount: (user.unreadCount || 0) + 1,
+            }
+          : user
+      );
+
+      return updatedUsers.sort((a, b) => {
+        if (!a.lastMessageAt) return 1;
+        if (!b.lastMessageAt) return -1;
+        return new Date(b.lastMessageAt) - new Date(a.lastMessageAt);
+      });
+    });
+  }, []);
+
+  const loadUsers = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+      setIsRefreshingList(true);
+    } else {
+      setIsRefreshingList(true);
+    }
+
     try {
       const currentSession = await getSession();
       if (!currentSession.token) {
-        navigation.replace("Login");
+        navigation.replace(ROUTES.LOGIN);
         return;
       }
       setSession(currentSession);
-      const data = await fetchUsers(currentSession.token);
-      setUsers(data || []);
+      
+      const response = await fetchUsers(currentSession.token);
+      const normalizedUsers = (response || []).map((user) => ({
+        ...user,
+        unreadCount: user.unreadCount || 0,
+      }));
+
+      setUsers(normalizedUsers);
+
+      connectSocket(
+        currentSession.token,
+        (message) => {
+          if (
+            message?.sender &&
+            message?.recipient &&
+            currentSession.username &&
+            message.recipient === currentSession.username &&
+            message.sender !== currentSession.username
+          ) {
+            updateUserUnread(message.sender, message);
+          }
+        },
+        () => {}
+      );
     } catch (err) {
+      console.error("[FRONTEND ERROR]", err);
       Toast.show({
         type: "error",
         text1: "Users Failed",
@@ -40,38 +99,95 @@ export default function UserListScreen({ navigation }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setIsRefreshingList(false);
     }
-  }, [navigation]);
-
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+  }, [navigation, updateUserUnread]);
 
   useFocusEffect(
     useCallback(() => {
-      loadUsers();
-    }, [loadUsers])
+      const updatedChat = route.params?.updatedChat;
+
+      if (updatedChat && users.length > 0) {
+        setUsers((prevUsers) => {
+          const filtered = prevUsers.filter(u => u.username.toLowerCase() !== updatedChat.username.toLowerCase());
+          const targetUser = prevUsers.find(u => u.username.toLowerCase() === updatedChat.username.toLowerCase());
+
+          if (targetUser) {
+            const updatedUser = {
+              ...targetUser,
+              lastMessage: updatedChat.lastMessage,
+              lastMessageAt: updatedChat.lastMessageAt,
+              unreadCount: 0
+            };
+            return [updatedUser, ...filtered];
+          }
+          return prevUsers;
+        });
+
+        navigation.setParams({ updatedChat: undefined });
+        loadUsers(false);
+      } else {
+        loadUsers(users.length === 0); 
+      }
+    }, [loadUsers, route.params?.updatedChat, users.length])
   );
+
+  React.useEffect(() => {
+    return () => {
+      disconnectSocket();
+    };
+  }, []);
 
   const refresh = () => {
     setRefreshing(true);
-    loadUsers();
+    loadUsers(false);
   };
 
-  const handleLogout = async () => {
-    await clearSession();
-    navigation.replace("Login");
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to log out?",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Yes",
+          style: "destructive",
+          onPress: async () => {
+            await clearSession();
+            navigation.replace(ROUTES.LOGIN);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
-  const avatarColors = ["#075E54", "#128C7E", "#25D366", "#34B7F1", "#667781"];
   const getAvatarColor = (name) => {
-    const idx = name ? name.charCodeAt(0) % avatarColors.length : 0;
-    return avatarColors[idx];
+    const idx = name ? name.charCodeAt(0) % COLORS.avatarPalette.length : 0;
+    return COLORS.avatarPalette[idx];
+  };
+
+  const formatMessageTime = (dateString) => {
+    if (!dateString) return "";
+    const msgDate = new Date(dateString);
+    const today = new Date();
+    
+    if (msgDate.toDateString() === today.toDateString()) {
+      return msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    if (msgDate.toDateString() === yesterday.toDateString()) {
+      return "Yesterday";
+    }
+    
+    return msgDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#075E54" />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>ChatApp</Text>
@@ -82,10 +198,8 @@ export default function UserListScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#075E54" />
-        </View>
+      {loading || isRefreshingList ? (
+        <LoadingIndicator fullScreen style={styles.center} />
       ) : (
         <FlatList
           data={users}
@@ -107,19 +221,36 @@ export default function UserListScreen({ navigation }) {
             <TouchableOpacity
               style={styles.userRow}
               activeOpacity={0.6}
-              onPress={() => navigation.navigate("Chat", { user: item })}
+              onPress={() => navigation.navigate(ROUTES.CHAT, { user: item })}
             >
               <View style={[styles.avatar, { backgroundColor: getAvatarColor(item.username) }]}>
                 <Text style={styles.avatarText}>
-                  {item.username.charAt(0).toUpperCase()}
+                  {item.username ? item.username.charAt(0).toUpperCase() : '?'}
                 </Text>
               </View>
+              
               <View style={styles.userTextWrap}>
                 <View style={styles.rowTop}>
                   <Text style={styles.username}>{item.username}</Text>
-                  <Text style={styles.timeText}>now</Text>
+                  {/* Agar unread message hai toh time ka color WhatsApp green ho jayega */}
+                  <Text style={[styles.timeText, item.unreadCount > 0 && styles.timeTextUnread]}>
+                    {item.lastMessageAt ? formatMessageTime(item.lastMessageAt) : ""}
+                  </Text>
                 </View>
-                <Text style={styles.userSub} numberOfLines={1}>Tap to start chatting</Text>
+                
+                {/* Bottom Row containing Message text and Badge */}
+                <View style={styles.rowBottom}>
+                  <Text style={styles.userSub} numberOfLines={1}>
+                    {item.lastMessage ? item.lastMessage : "Tap to start chatting"}
+                  </Text>
+                  
+                  {/* Unread Badge UI Conditional Render */}
+                  {item.unreadCount > 0 && (
+                    <View style={styles.badgeContainer}>
+                      <Text style={styles.badgeText}>{item.unreadCount}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </TouchableOpacity>
           )}
@@ -133,82 +264,3 @@ export default function UserListScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FFF" },
-  header: {
-    alignItems: "center",
-    backgroundColor: "#075E54",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-  },
-  title: { color: "#FFF", fontSize: 21, fontWeight: "800", letterSpacing: -0.3 },
-  subtitle: { color: "#D9FDD3", fontSize: 12, marginTop: 2, fontWeight: "500" },
-  logoutBtn: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  logoutText: { color: "#FFF", fontSize: 13, fontWeight: "700" },
-  center: { alignItems: "center", flex: 1, justifyContent: "center" },
-  list: { paddingBottom: 90 },
-  separator: { height: 1, backgroundColor: "#F0F0F0", marginLeft: 86 },
-  userRow: {
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    flexDirection: "row",
-    minHeight: 72,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  avatar: {
-    alignItems: "center",
-    borderRadius: 27,
-    height: 54,
-    justifyContent: "center",
-    width: 54,
-  },
-  avatarText: { color: "#fff", fontSize: 20, fontWeight: "800" },
-  userTextWrap: { flex: 1, marginLeft: 14 },
-  rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  username: { color: "#111B21", fontSize: 17, fontWeight: "600" },
-  timeText: { color: "#667781", fontSize: 12 },
-  userSub: { color: "#667781", fontSize: 14, marginTop: 3 },
-  empty: { alignItems: "center", paddingTop: 90 },
-  emptyIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#DCF8C6",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 18,
-  },
-  emptyIcon: { fontSize: 34 },
-  emptyTitle: { color: "#111B21", fontSize: 17, fontWeight: "700" },
-  emptyText: { color: "#667781", fontSize: 13, marginTop: 6, fontWeight: "500" },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#25D366",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-  },
-  fabIcon: { color: "#FFF", fontSize: 26, fontWeight: "700" },
-});

@@ -9,3 +9,10 @@ export const STORAGE_KEYS = {
   TOKEN: "@chat_token",
   USERNAME: "@chat_username",
 };
+
+export const ROUTES = {
+  LOGIN: 'Login',
+  REGISTER: 'Register',
+  USERS: 'Users',
+  CHAT: 'Chat',
+};

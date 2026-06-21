@@ -6,46 +6,42 @@ export const useAuth = (navigation) => {
     const [loading, setLoading] = useState(false);
 
     const register = async (username, password) => {
-        if (!username.trim() || !password.trim()) {
-            throw new Error('Please fill in all fields.');
-        }
+        if (!username.trim() || !password.trim()) throw new Error('Please fill in all fields.');
+        
         setLoading(true);
         try {
             await registerUser(username.trim(), password);
+        } catch (err) {
+            throw new Error(err.response?.data?.error || 'Registration failed.');
+        } finally {
             setLoading(false);
-            return true;
-        } catch (error) {
-            setLoading(false);
-            const errorMsg = error.response?.data?.error || 'Registration failed.';
-            throw new Error(errorMsg);
-            console.log('Registration error:', error);
         }
     };
 
-    const login = async (username, password) => {
-        if (!username.trim() || !password.trim()) {
-            throw new Error('Please enter username and password.');
-        }
-        setLoading(true);
-        try {
-            const data = await loginUser(username.trim(), password);
-            await setSession(data.token, data.username);
-            setLoading(false);
+ const login = async (username, password) => {
+    setLoading(true);
+    try {
+        const response = await loginUser(username.trim(), password);
+        const token = response.token; 
+        const user = response.username;
+    
+        if (token) {
+            await setSession(token, user);
             navigation.replace('Users');
-        } catch (error) {
-            setLoading(false);
-            const errorMsg = error.response?.data?.error || 'Invalid credentials.';
-            throw new Error(errorMsg);
+        } else {
+            throw new Error('Login failed: No token received.');
         }
-    };
+    } catch (err) {
+        console.log('Login Error Log:', err);
+        throw new Error(err.message);
+    } finally {
+        setLoading(false);
+    }
+};
 
     const logout = async () => {
-        try {
-            await clearSession();
-            navigation.replace('Login');
-        } catch (error) {
-            console.log('Logout error:', error);
-        }
+        await clearSession();
+        navigation.replace('Login');
     };
 
     return { loading, login, register, logout };

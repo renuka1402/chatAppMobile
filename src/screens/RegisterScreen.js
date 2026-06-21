@@ -1,99 +1,74 @@
 import React, { useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LoadingIndicator from '../components/LoadingIndicator';
 import { useAuth } from '../hooks/useAuth';
 import authStyles from '../styles/authStyles';
+import { COLORS } from '../styles/colors';
+import { ROUTES } from '../utils/constants';
 import { showErrorToast, showSuccessToast } from '../utils/toast';
-import { validateRegisterForm, hasValidationErrors } from '../utils/validation';
+import { validateRegisterForm } from '../utils/validation';
 
 export default function RegisterScreen({ navigation }) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [errors, setErrors] = useState({ username: '', password: '' });
+    const [errors, setErrors] = useState({});
     const { loading, register } = useAuth(navigation);
 
-    const validate = () => {
-        const newErrors = validateRegisterForm({ username, password });
-        setErrors(newErrors);
-        return !hasValidationErrors(newErrors);
-    };
-
     const handleRegister = async () => {
-        if (!validate()) return;
+        const newErrors = validateRegisterForm({ username, password });
+        if (newErrors.username || newErrors.password) {
+            setErrors(newErrors);
+            return;
+        }
 
         try {
             await register(username.trim(), password);
-            showSuccessToast('Account Created', 'Please login to continue');
-            navigation.navigate('Login');
+            showSuccessToast('Success', 'Account created! Please login.');
+            navigation.navigate(ROUTES.LOGIN);
         } catch (error) {
-            showErrorToast('Registration Failed', error.message || 'Something went wrong');
+            showErrorToast('Registration Failed', error.message);
         }
     };
 
     return (
-        <SafeAreaView style={authStyles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={authStyles.container}>
             <View style={authStyles.formContainer}>
                 <View style={authStyles.headerArea}>
-                    <View style={authStyles.logoCircle}>
-                        <Text style={authStyles.logoEmoji}>✨</Text>
-                    </View>
                     <Text style={authStyles.title}>Create Account</Text>
-                    <Text style={authStyles.subtitle}>Connect with friends globally in real-time</Text>
                 </View>
 
                 <View style={authStyles.inputWrapper}>
                     <Text style={authStyles.inputLabel}>Username</Text>
                     <TextInput
-                        style={[authStyles.input, errors.username ? authStyles.inputError : null]}
-                        placeholder="Choose a unique username"
+                        style={[authStyles.input, errors.username && authStyles.inputError]}
+                        placeholder="Enter username"
                         value={username}
-                        onChangeText={(text) => {
-                            setUsername(text);
-                            if (errors.username) setErrors((prev) => ({ ...prev, username: '' }));
-                        }}
+                        onChangeText={(t) => { setUsername(t); setErrors({...errors, username: ''}) }}
                         autoCapitalize="none"
-                        placeholderTextColor="#999"
                     />
-                    {errors.username ? <Text style={authStyles.errorText}>{errors.username}</Text> : null}
+                    {errors.username && <Text style={authStyles.errorText}>{errors.username}</Text>}
                 </View>
 
                 <View style={authStyles.inputWrapper}>
                     <Text style={authStyles.inputLabel}>Password</Text>
                     <TextInput
-                        style={[authStyles.input, errors.password ? authStyles.inputError : null]}
-                        placeholder="Minimum 6 characters"
+                        style={[authStyles.input, errors.password && authStyles.inputError]}
+                        placeholder="Min 6 characters"
                         secureTextEntry
                         value={password}
-                        onChangeText={(text) => {
-                            setPassword(text);
-                            if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
-                        }}
+                        onChangeText={(t) => { setPassword(t); setErrors({...errors, password: ''}) }}
                         autoCapitalize="none"
-                        placeholderTextColor="#999"
                     />
-                    {errors.password ? <Text style={authStyles.errorText}>{errors.password}</Text> : null}
+                    {errors.password && <Text style={authStyles.errorText}>{errors.password}</Text>}
                 </View>
 
-                <TouchableOpacity
-                    style={[authStyles.button, loading && authStyles.buttonDisabled]}
-                    onPress={handleRegister}
-                    disabled={loading}
-                    activeOpacity={0.8}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#FFF" size="small" />
-                    ) : (
-                        <Text style={authStyles.buttonText}>Get Started</Text>
-                    )}
+                <TouchableOpacity style={authStyles.button} onPress={handleRegister} disabled={loading}>
+                    {loading ? <LoadingIndicator size="small" color={COLORS.white} /> : <Text style={authStyles.buttonText}>Get Started</Text>}
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    onPress={() => navigation.navigate('Login')}
-                    activeOpacity={0.7}
-                    style={authStyles.switchContainer}
-                >
-                    <Text style={authStyles.switchTextNormal}>Already have an account? </Text>
-                    <Text style={authStyles.switchTextBold}>Sign In</Text>
+                <TouchableOpacity style={authStyles.switchContainer} onPress={() => navigation.navigate(ROUTES.LOGIN)}>
+                    <Text style={authStyles.switchTextNormal}>Already have an account? <Text style={authStyles.switchTextBold}>Sign In</Text></Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 
+import LoadingIndicator from '../components/LoadingIndicator';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import UserListScreen from '../screens/UserListScreen';
 import ChatScreen from '../screens/ChatScreen';
+import { ROUTES } from '../utils/constants';
 import { getSession } from '../utils/storage';
 
 const Stack = createNativeStackNavigator();
@@ -30,20 +31,16 @@ export default function AppNavigator() {
     }, []);
 
     if (isLoading) {
-        return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#007AFF" />
-            </View>
-        );
+        return <LoadingIndicator fullScreen />;
     }
 
     return (
         <NavigationContainer>
-            <Stack.Navigator initialRouteName={userToken ? "Users" : "Login"}>
-                <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Users" component={UserListScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
+            <Stack.Navigator initialRouteName={userToken ? ROUTES.USERS : ROUTES.LOGIN}>
+                <Stack.Screen name={ROUTES.LOGIN} component={LoginScreen} options={{ headerShown: false }} />
+                <Stack.Screen name={ROUTES.REGISTER} component={RegisterScreen} options={{ headerShown: false }} />
+                <Stack.Screen name={ROUTES.USERS} component={UserListScreen} options={{ headerShown: false }} />
+                <Stack.Screen name={ROUTES.CHAT} component={ChatScreen} options={{ headerShown: false }} />
             </Stack.Navigator>
         </NavigationContainer>
     );

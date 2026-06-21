@@ -24,7 +24,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1A1A2E"
       },
-      "package": "com.yourname.chatapp"
+      "package": "com.yourname.chatapp",
+      "softwareKeyboardLayoutMode": "adjustResize"
     },
     "plugins": [
       "expo-asset",
@@ -39,3 +40,5 @@
     "owner": "renu1402"
   }
 }
+
+
