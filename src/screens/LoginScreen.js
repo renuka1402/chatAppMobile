@@ -36,7 +36,7 @@ export default function LoginScreen({ navigation }) {
                     <View style={authStyles.formContainer}>
                         
                         <View style={authStyles.headerArea}>
-                            <View style={authStyles.logoCircle}><Text style={authStyles.logoEmoji}>💬</Text></View>
+                          
                             <Text style={authStyles.title}>Welcome Back</Text>
                         </View>
 
